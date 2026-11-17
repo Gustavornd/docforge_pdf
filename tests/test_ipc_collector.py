@@ -54,7 +54,7 @@ def test_ipc_multi_instance_coordination():
             action="merge",
             incoming_files=["/test/master_doc.pdf"],
             port=port,
-            debounce_seconds=0.3
+            debounce_seconds=0.8
         )
         master_result["is_master"] = is_master
         master_result["action"] = action
@@ -64,7 +64,7 @@ def test_ipc_multi_instance_coordination():
     t.start()
 
     # Give master a moment to bind
-    time.sleep(0.08)
+    time.sleep(0.45)
 
     # Client 1 connects and sends file2
     c1_is_master, _, c1_files = collect_files_via_ipc(

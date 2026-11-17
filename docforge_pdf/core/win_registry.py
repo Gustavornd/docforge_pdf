@@ -79,6 +79,8 @@ def _delete_key_recursive(root_key, subkey_path: str) -> None:
             while True:
                 try:
                     sub = winreg.EnumKey(key, 0)
+                    if not isinstance(sub, str):
+                        break
                     _delete_key_recursive(root_key, f"{subkey_path}\\{sub}")
                 except OSError:
                     break
@@ -90,7 +92,7 @@ def _delete_key_recursive(root_key, subkey_path: str) -> None:
 def register_context_menu(app_path: Optional[str] = None) -> Tuple[bool, str]:
     """
     Registra as opções do DocForge no Menu de Contexto do Windows:
-    1. Para arquivos .pdf (menu cascata ordenado com 3 ações).
+    1. Para arquivos .pdf (menu cascata ordenado com 3 ações via ExtendedSubCommandsKey).
     2. Para pastas e plano de fundo de pastas (ação de unir todos os PDFs da pasta).
     """
     if not is_windows():
@@ -104,28 +106,35 @@ def register_context_menu(app_path: Optional[str] = None) -> Tuple[bool, str]:
         else:
             exe_icon = sys.executable
 
-        # 1. Configurar entrada para arquivos .pdf (Menu Cascata)
-        _set_reg_value(winreg.HKEY_CURRENT_USER, PDF_SHELL_KEY, None, "DocForge PDF")
+        # Limpar registros anteriores do PDF para evitar chaves obsoletas
+        _delete_key_recursive(winreg.HKEY_CURRENT_USER, PDF_SHELL_KEY)
+
+        # 1. Configurar entrada âncora para arquivos .pdf (Menu Cascata)
+        # O padrão do Windows para menus cascata sem elevação (HKCU) exige ExtendedSubCommandsKey
+        # e que o valor Default (padrão) da âncora permaneça vazio.
+        extended_sub_path = r"SystemFileAssociations\.pdf\shell\DocForge\SubCommands"
         _set_reg_value(winreg.HKEY_CURRENT_USER, PDF_SHELL_KEY, "MUIVerb", "DocForge PDF")
-        _set_reg_value(winreg.HKEY_CURRENT_USER, PDF_SHELL_KEY, "SubCommands", "")
+        _set_reg_value(winreg.HKEY_CURRENT_USER, PDF_SHELL_KEY, "ExtendedSubCommandsKey", extended_sub_path)
         _set_reg_value(winreg.HKEY_CURRENT_USER, PDF_SHELL_KEY, "Icon", exe_icon)
 
+        subcommands_base = f"{PDF_SHELL_KEY}\\SubCommands\\shell"
+
         # Subcomando 1: Juntar PDFs no DocForge
-        sub1 = f"{PDF_SHELL_KEY}\\shell\\01_merge"
+        sub1 = f"{subcommands_base}\\01_merge"
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub1, None, "Juntar PDFs no DocForge")
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub1, "MUIVerb", "Juntar PDFs no DocForge")
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub1, "Icon", exe_icon)
         _set_reg_value(winreg.HKEY_CURRENT_USER, f"{sub1}\\command", None, f'{cmd_prefix} --action merge "%1"')
 
         # Subcomando 2: Merge Rápido (Auto-Ordem)
-        sub2 = f"{PDF_SHELL_KEY}\\shell\\02_fast_merge"
+        sub2 = f"{subcommands_base}\\02_fast_merge"
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub2, None, "Merge Rápido (Auto-Ordem)")
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub2, "MUIVerb", "Merge Rápido (Auto-Ordem)")
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub2, "Icon", exe_icon)
         _set_reg_value(winreg.HKEY_CURRENT_USER, f"{sub2}\\command", None, f'{cmd_prefix} --action fast-merge "%1"')
 
         # Subcomando 3: Separar / Extrair Páginas
-        sub3 = f"{PDF_SHELL_KEY}\\shell\\03_split"
+        sub3 = f"{subcommands_base}\\03_split"
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub3, None, "Separar / Extrair Páginas")
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub3, "MUIVerb", "Separar / Extrair Páginas")
         _set_reg_value(winreg.HKEY_CURRENT_USER, sub3, "Icon", exe_icon)
@@ -191,4 +200,3 @@ def reveal_in_explorer(target_path: str) -> bool:
             return True
     except Exception:
         return False
-
