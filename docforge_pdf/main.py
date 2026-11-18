@@ -16,7 +16,11 @@ if pkg_parent not in sys.path:
     sys.path.insert(0, pkg_parent)
 
 from docforge_pdf.core import ipc_collector, pdf_engine, sorter
-from docforge_pdf.core.win_registry import reveal_in_explorer
+from docforge_pdf.core.win_registry import (
+    reveal_in_explorer,
+    register_context_menu,
+    unregister_context_menu,
+)
 from docforge_pdf.ui.app_window import DocForgeApp
 
 logging.basicConfig(
@@ -114,6 +118,16 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Tempo de espera de debounce em segundos para acumulação de instâncias.",
     )
     parser.add_argument(
+        "--register-menu",
+        action="store_true",
+        help="Registra as ações do DocForge no Menu de Contexto do Windows Explorer.",
+    )
+    parser.add_argument(
+        "--unregister-menu",
+        action="store_true",
+        help="Remove as ações do DocForge do Menu de Contexto do Windows Explorer.",
+    )
+    parser.add_argument(
         "files",
         nargs="*",
         default=[],
@@ -128,6 +142,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
+
+    if args.register_menu:
+        ok, msg = register_context_menu()
+        logger.info(msg)
+        return 0 if ok else 1
+
+    if args.unregister_menu:
+        ok, msg = unregister_context_menu()
+        logger.info(msg)
+        return 0 if ok else 1
 
     raw_files = list(args.files)
     effective_action = args.action

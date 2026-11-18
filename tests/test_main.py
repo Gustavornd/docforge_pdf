@@ -146,3 +146,15 @@ def test_main_cli_merge_folder_expands(temp_dir):
         args, kwargs = mock_app_cls.call_args
         assert kwargs["initial_action"] == "merge"
         assert len(kwargs["initial_files"]) == 2
+
+
+def test_main_cli_register_and_unregister_menu():
+    with patch("docforge_pdf.main.register_context_menu", return_value=(True, "OK")) as mock_reg, \
+         patch("docforge_pdf.main.unregister_context_menu", return_value=(True, "OK")) as mock_unreg:
+        ret_reg = docforge_main.main(["--register-menu"])
+        assert ret_reg == 0
+        mock_reg.assert_called_once()
+
+        ret_unreg = docforge_main.main(["--unregister-menu"])
+        assert ret_unreg == 0
+        mock_unreg.assert_called_once()
